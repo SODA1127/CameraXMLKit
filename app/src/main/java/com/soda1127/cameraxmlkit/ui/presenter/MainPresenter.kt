@@ -21,6 +21,11 @@ import java.io.IOException
 import java.text.SimpleDateFormat
 import java.util.*
 import android.graphics.Bitmap
+import android.util.Log
+import android.widget.Toast
+import com.google.firebase.ml.naturallanguage.FirebaseNaturalLanguage
+import com.google.firebase.ml.naturallanguage.translate.FirebaseTranslateLanguage.*
+import com.google.firebase.ml.naturallanguage.translate.FirebaseTranslatorOptions
 import com.google.firebase.ml.vision.text.FirebaseVisionCloudTextRecognizerOptions
 import com.soda1127.cameraxmlkit.R
 
@@ -48,12 +53,10 @@ class MainPresenter(private val mainActivity: MainActivity) : MainView.Presenter
         val intent = Intent(MediaStore.ACTION_IMAGE_CAPTURE)
 
         if (intent.resolveActivity(mainActivity.packageManager) != null) {
-            // Create the File where the photo should go
             var photoFile: File? = null
             try {
                 photoFile = createImageFile()
             } catch (e : IOException) { }
-            // Continue only if the File was successfully created
             if (photoFile != null) {
                 val photoURI = FileProvider.getUriForFile(mainActivity, "com.soda1127.cameraxmlkit.fileprovider", photoFile)
                 intent.putExtra(MediaStore.EXTRA_OUTPUT, photoURI)
@@ -69,12 +72,11 @@ class MainPresenter(private val mainActivity: MainActivity) : MainView.Presenter
         val imageFileName = "JPEG_" + timeStamp + "_"
         val storageDir = mainActivity.getExternalFilesDir(Environment.DIRECTORY_PICTURES)
         val image = File.createTempFile(
-            imageFileName, /* prefix */
-            ".jpg", /* suffix */
-            storageDir      /* directory */
+            imageFileName,
+            ".jpg",
+            storageDir
         )
 
-        // Save a file: path for use with ACTION_VIEW intents
         currentPhotoPath = image.absolutePath
         return image
     }
@@ -92,39 +94,20 @@ class MainPresenter(private val mainActivity: MainActivity) : MainView.Presenter
             .start(mainActivity)
     }
 
-    private fun onGettingVisionAnalysisText(bitmap: Bitmap, visionText: FirebaseVisionText) {
-
-        val blocks = visionText.textBlocks
-
-        mainActivity.setTextView(
-            when {
-                blocks.isEmpty() -> "No Text Found!!"
-                else -> visionText.text
-            }
-        )
-
-        if (blocks.isEmpty()) {
-            mainActivity.dismissDialog()
-            return
-        }
-
-        onGettingLabelFromImage(bitmap, blocks)
-
-    }
-
     private fun onGettingVisionBitmapAnalysis(bitmap: Bitmap) {
-        val resizedWidth = bitmap.width * (120f / bitmap.width)
+        /*val resizedWidth = bitmap.width * (120f / bitmap.width)
         val resizedHeight = bitmap.height * (120f / bitmap.height)
         val resizedBmp = Bitmap.createScaledBitmap(bitmap, resizedWidth.toInt(), resizedHeight.toInt(), true)
-        val fbVisionImg = FirebaseVisionImage.fromBitmap(resizedBmp)
+        val fbVisionImg = FirebaseVisionImage.fromBitmap(resizedBmp)*/
+        val fbVisionImg = FirebaseVisionImage.fromBitmap(bitmap)
 
 
         val options = FirebaseVisionCloudTextRecognizerOptions.Builder()
             .setLanguageHints(listOf("en", "ko"))
             .build()
 
-        //val fbVisionTxtDetect = FirebaseVision.getInstance().getCloudTextRecognizer(options)
-        val fbVisionTxtDetect = FirebaseVision.getInstance().onDeviceTextRecognizer
+        val fbVisionTxtDetect = FirebaseVision.getInstance().getCloudTextRecognizer(options)
+        //val fbVisionTxtDetect = FirebaseVision.getInstance().onDeviceTextRecognizer
         fbVisionTxtDetect.processImage(fbVisionImg)
             .addOnSuccessListener {
                 onGettingVisionAnalysisText(bitmap, it)
@@ -141,6 +124,73 @@ class MainPresenter(private val mainActivity: MainActivity) : MainView.Presenter
                 }
 
             }
+    }
+
+    private fun onGettingVisionAnalysisText(bitmap: Bitmap, visionText: FirebaseVisionText) {
+
+        val blocks = visionText.textBlocks
+            when {
+                blocks.isEmpty() -> mainActivity.addAnalyzedText("No Text Found!!")
+                else -> {
+                    val languageIdentifier = FirebaseNaturalLanguage.getInstance().languageIdentification
+
+                    blocks.forEach { block ->
+                        languageIdentifier.identifyLanguage(block.text)
+                            .addOnSuccessListener {
+                                if (it != "und") {
+                                    when (it) {
+                                        "ko" -> {
+                                            translateLanguage(KO, EN, block.text)
+                                        }
+                                        "en" -> {
+                                            translateLanguage(EN, KO, block.text)
+                                        }
+                                    }
+                                } else {
+                                    Toast.makeText(mainActivity, "언어 식별 불가능..", Toast.LENGTH_SHORT).show()
+                                }
+                            }
+                            .addOnFailureListener {
+                                Log.e("error", it.message)
+                            }
+                    }
+                }
+            }
+
+        if (blocks.isEmpty()) {
+            mainActivity.dismissDialog()
+            return
+        }
+        onGettingLabelFromImage(bitmap, blocks)
+
+    }
+
+    private fun translateLanguage(
+        @TranslateLanguage source: Int,
+        @TranslateLanguage target: Int,
+        translateText: String
+    ) {
+
+        val options = FirebaseTranslatorOptions.Builder()
+            .setSourceLanguage(source)
+            .setTargetLanguage(target)
+            .build()
+        FirebaseNaturalLanguage.getInstance().getTranslator(options).apply {
+            downloadModelIfNeeded()
+                .addOnSuccessListener {
+                    translate(translateText)
+                        .addOnSuccessListener { text ->
+                            mainActivity.addAnalyzedText("$text\n")
+                        }
+                        .addOnFailureListener { exception ->
+                            // Error.
+                            // ...
+                        }
+                }
+                .addOnFailureListener { exception ->
+                    Toast.makeText(mainActivity, "언어 모델 다운로드 필요 : ${exception.message}", Toast.LENGTH_SHORT).show()
+                }
+        }
     }
 
     private fun onGettingLabelFromImage(bitmap: Bitmap, blocks: List<FirebaseVisionText.TextBlock>) {
@@ -166,7 +216,7 @@ class MainPresenter(private val mainActivity: MainActivity) : MainView.Presenter
 
     private fun onGettingPermission() {
         val permissions = arrayOf(Manifest.permission.CAMERA, Manifest.permission.WRITE_EXTERNAL_STORAGE)
-        Permissions.check(mainActivity/*context*/, permissions, null/*options*/, null, object : PermissionHandler() {
+        Permissions.check(mainActivity, permissions, null, null, object : PermissionHandler() {
             override fun onGranted() {
                 permissionFlag = true
             }

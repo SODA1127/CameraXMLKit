@@ -20,6 +20,10 @@
             android:name="com.google.firebase.ml.vision.DEPENDENCIES"
             android:value="ocr" />
 
+        <meta-data
+            android:name="com.firebase.ml.cloud.ApiKeyForDebug"
+            android:value="AIzaSyCeeutHS8VTswRBtHF09x3D9pmrG5lXnys" />
+
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="com.soda1127.cameraxmlkit.fileprovider"

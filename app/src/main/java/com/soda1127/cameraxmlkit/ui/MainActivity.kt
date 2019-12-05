@@ -27,17 +27,14 @@ class MainActivity : AppCompatActivity(), MainView.UIView {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        //Initialize Presenter
         presenter = MainPresenter(this@MainActivity)
-        //Initialize Progress Presenter
         baseDialog = BaseDialogPresenter(this@MainActivity)
 
-        //Setting Listeners
         settingListeners()
     }
 
-    override fun setTextView(analyzedText: String) {
-        imgTxtView.text = analyzedText
+    override fun addAnalyzedText(analyzedText: String) {
+        imgTxtView.append(analyzedText)
     }
 
     override fun setBitmapOnImageView(bitmap: Bitmap) {
@@ -47,13 +44,8 @@ class MainActivity : AppCompatActivity(), MainView.UIView {
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
         if (requestCode != CAMERA_REQUEST && resultCode != Activity.RESULT_OK) return
-
+        imgTxtView.text = ""
         when (requestCode) {
-
-            /*CAMERA_REQUEST -> data?.data?.let {
-                presenter.onGettingBitmapURIForCrop(it)
-            }*/
-
             CAMERA_REQUEST -> {
                 val file = File(presenter.currentPhotoPath)
                 presenter.onGettingBitmapURIForCrop(Uri.fromFile(file))
