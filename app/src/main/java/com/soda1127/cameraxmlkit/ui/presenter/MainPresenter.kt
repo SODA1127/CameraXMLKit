@@ -26,6 +26,7 @@ import android.widget.Toast
 import com.google.firebase.ml.naturallanguage.FirebaseNaturalLanguage
 import com.google.firebase.ml.naturallanguage.translate.FirebaseTranslateLanguage.*
 import com.google.firebase.ml.naturallanguage.translate.FirebaseTranslatorOptions
+import com.google.firebase.ml.vision.label.FirebaseVisionCloudImageLabelerOptions
 import com.google.firebase.ml.vision.text.FirebaseVisionCloudTextRecognizerOptions
 import com.soda1127.cameraxmlkit.R
 
@@ -101,7 +102,33 @@ class MainPresenter(private val mainActivity: MainActivity) : MainView.Presenter
         val fbVisionImg = FirebaseVisionImage.fromBitmap(resizedBmp)*/
         val fbVisionImg = FirebaseVisionImage.fromBitmap(bitmap)
 
+        onGettingVisionRecognizeObject(fbVisionImg)
+        //onGettingVisionRecognizeText(bitmap, fbVisionImg)
+    }
 
+    private fun onGettingVisionRecognizeObject(fbVisionImg: FirebaseVisionImage) {
+        val options = FirebaseVisionCloudImageLabelerOptions.Builder()
+            .setConfidenceThreshold(0.7f)
+            .build()
+        val labelDetector = FirebaseVision.getInstance().getCloudImageLabeler(options)
+        labelDetector.processImage(fbVisionImg)
+            .addOnSuccessListener {
+                var labels = ""
+                it.forEach { label ->
+                    labels += "${label.text} | 정확도 : ${label.confidence} | ID : ${label.entityId}\n"
+                }
+                mainActivity.dismissDialog()
+                mainActivity.setAnalyzedText(labels)
+            }
+            .addOnFailureListener {
+                Log.e("error", it.message)
+                mainActivity.dismissDialog()
+            }
+
+
+    }
+
+    private fun onGettingVisionRecognizeText(bitmap: Bitmap, fbVisionImg: FirebaseVisionImage) {
         val options = FirebaseVisionCloudTextRecognizerOptions.Builder()
             .setLanguageHints(listOf("en", "ko"))
             .build()
@@ -126,7 +153,7 @@ class MainPresenter(private val mainActivity: MainActivity) : MainView.Presenter
             }
     }
 
-    private fun onGettingVisionAnalysisText(bitmap: Bitmap, visionText: FirebaseVisionText) {
+    private fun onGettingVisionAnalysisText(bitmap: Bitmap? = null, visionText: FirebaseVisionText) {
 
         val blocks = visionText.textBlocks
             when {
@@ -161,7 +188,7 @@ class MainPresenter(private val mainActivity: MainActivity) : MainView.Presenter
             mainActivity.dismissDialog()
             return
         }
-        onGettingLabelFromImage(bitmap, blocks)
+        bitmap?.let { onGettingLabelFromImage(it, blocks) }
 
     }
 

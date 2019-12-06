@@ -38,6 +38,7 @@ dependencies {
     //Permissions
     implementation 'com.nabinbhandari.android:permissions:3.8'
     //Firebase
+    implementation 'com.google.firebase:firebase-core:17.2.1'
     implementation 'com.google.firebase:firebase-ml-vision:24.0.1'
     implementation 'com.google.firebase:firebase-ml-vision-image-label-model:19.0.0'
 

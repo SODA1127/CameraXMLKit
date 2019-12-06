@@ -7,6 +7,8 @@ interface MainView {
 
     interface UIView {
 
+        fun setAnalyzedText(analyzedText: String)
+
         fun addAnalyzedText(analyzedText: String)
 
         fun setBitmapOnImageView(bitmap: Bitmap)

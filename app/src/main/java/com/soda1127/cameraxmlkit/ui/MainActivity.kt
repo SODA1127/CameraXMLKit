@@ -33,6 +33,10 @@ class MainActivity : AppCompatActivity(), MainView.UIView {
         settingListeners()
     }
 
+    override fun setAnalyzedText(analyzedText: String) {
+        imgTxtView.text = analyzedText
+    }
+
     override fun addAnalyzedText(analyzedText: String) {
         imgTxtView.append(analyzedText)
     }
